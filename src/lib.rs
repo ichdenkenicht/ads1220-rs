@@ -4,7 +4,7 @@
 #[deny(missing_docs)]
 extern crate embedded_hal as hal;
 
-
+use hal::spi::blocking::{SpiBus, SpiBusRead, SpiBusWrite, SpiDevice};
 
 
 pub enum Command {
@@ -38,8 +38,9 @@ impl Register {
 }
 
 ///Programmable Gain Amplifier (pga) ads1220 datasheet, p. 40
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum PGA {
+    #[default]
     Gain1 = 0b000,
     Gain2 = 0b001,
     Gain4 = 0b010,
@@ -48,12 +49,6 @@ pub enum PGA {
     Gain32 = 0b101,
     Gain64 = 0b110,
     Gain128 = 0b111,
-}
-
-impl Default for PGA {
-    fn default() -> Self {
-        PGA::Gain1
-    }
 }
 
 impl PGA {
@@ -95,8 +90,9 @@ impl Channel {
 }
 
 //Data Rate Normal Mode
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub enum DataRateNormal {
+    #[default]
     SPS20 = 0x0,
     SPS45 = 0x1,
     SPS90 = 0x2,
@@ -112,13 +108,9 @@ impl DataRateNormal {
     }
 }
 
-impl Default for DataRateNormal {
-    fn default() -> Self {
-        DataRateNormal::SPS20
-    }
-}
-
+#[derive(Debug, Copy, Clone, Default)]
 pub enum Mode {
+    #[default]
     NORMAL = 0x0,
     DUTYCYCLE = 0x1,
     TURBO = 0x2,
@@ -130,15 +122,145 @@ impl Mode {
     }
 }
 
-impl Default for Mode {
-    fn default() -> Self {
-        Mode::NORMAL
-    }
-}
-
+#[derive(Debug, Copy, Clone, Default)]
 pub enum Reference {
+    #[default]
     V2048 = 0x0,
     REF0 = 0x1,
     REF1 = 0x2,
     AV = 0x3,
+}
+
+impl Reference {
+    fn bits(self) -> u8 {
+        self as u8
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub enum Filter {
+    #[default]
+    NONE = 0x0,
+    HZ5060 = 0x1,
+    HZ50 = 0x2,
+    HZ60 = 0x3,
+}
+
+impl Filter {
+    fn bits(self) -> u8 {
+        self as u8
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub enum Idac {
+    #[default]
+    OFF = 0x0,
+    U10 = 0x1,
+    U50 = 0x2,
+    U100 = 0x3,
+    U250 = 0x4,
+    U500 = 0x5,
+    U1000 = 0x6,
+    U1500 = 0x7,
+}
+
+impl Idac {
+    fn bits(self) -> u8 {
+        self as u8
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub enum Idac1r {
+    #[default]
+    OFF = 0x0,
+    AIN0 = 0x1,
+    AIN1 = 0x2,
+    AIN2 = 0x3,
+    AIN3 = 0x4,
+    REFP0 = 0x5,
+    REFN0 = 0x6,
+}
+
+impl Idac1r {
+    fn bits(self) -> u8 {
+        self as u8
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default)]
+pub enum Idac2r {
+    #[default]
+    OFF = 0x0,
+    AIN0 = 0x1,
+    AIN1 = 0x2,
+    AIN2 = 0x3,
+    AIN3 = 0x4,
+    REFP0 = 0x5,
+    REFN0 = 0x6,
+}
+
+impl Idac2r {
+    fn bits(self) -> u8 {
+        self as u8
+    }
+}
+
+
+#[derive(Debug, Copy, Clone, Default)]
+pub struct Config {
+    cfg0: u8,
+    cfg1: u8,
+    cfg2: u8,
+    cfg3: u8,
+}
+
+
+
+pub struct ADS1220<SPI> {
+    spi: SPI,
+    config: Config,
+}
+
+impl<SPI> ADS1220<SPI>
+where
+     SPI: SpiDevice,
+     SPI::Bus: SpiBus, // or SpiBusRead/SpiBusWrite if you only need to read or only write.
+{
+     pub fn new(spi: SPI) -> Self {
+         Self { spi, config: Config::default() }
+     }
+
+    pub fn read_foo(&mut self) -> Result<[u8; 2], MyError<SPI::Error>> {
+        let mut buf = [0; 2];
+
+         // `transaction` asserts and deasserts CS for us. No need to do it manually!
+        self.spi.transaction(|bus| {
+             bus.write(&[0x90])?;
+             bus.read(&mut buf)
+        }).map_err(MyError::Spi)?;
+
+        Ok(buf)
+    }
+
+    pub fn read_register(&mut self, reg: Register) -> Result<u8, MyError<SPI::Error>> {
+        let mut res: [u8; 1] = [0];
+
+        // `transaction` asserts and deasserts CS for us. No need to do it manually!
+        self.spi.transaction(|bus| {
+             bus.write(&[Command::RREG.bits() | reg.addr() << 2])?;
+             bus.read(&mut res)
+        }).map_err(MyError::Spi)?;
+
+        Ok(res[0])
+    }
+
+    
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum MyError<SPI> {
+    Spi(SPI),
+    // Add other errors for your driver here.
 }
