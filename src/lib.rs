@@ -228,13 +228,63 @@ where
         
         let config = match ch {
             Channel::DIFF_AIN0_AIN1 => {
-                
+                self.config0.with_low(0xF0);
             },
             Channel::DIFF_AIN0_AIN2 => {
-                
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN0_AIN2.bits_on_pos());
             },
             Channel::DIFF_AIN0_AIN3 => {
-                
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN0_AIN3.bits_on_pos());
+            },
+            Channel::DIFF_AIN1_AIN2 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN1_AIN2.bits_on_pos());
+            },
+            Channel::DIFF_AIN1_AIN3 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN1_AIN3.bits_on_pos());
+            },
+            Channel::DIFF_AIN2_AIN3 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN2_AIN3.bits_on_pos());
+            },
+            Channel::DIFF_AIN1_AIN0 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN1_AIN0.bits_on_pos());
+            },
+            Channel::DIFF_AIN3_AIN2 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::DIFF_AIN3_AIN2.bits_on_pos());
+            },
+            Channel::AIN0 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::AIN0.bits_on_pos());
+            },
+            Channel::AIN1 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::AIN1.bits_on_pos());
+            },
+            Channel::AIN2 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::AIN2.bits_on_pos());
+            },
+            Channel::AIN3 => {
+                self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::AIN3.bits_on_pos());
+            },
+            Channel::VREFDIFF4 => {
+                self.config0.with_low(0xF0);
+            },
+            Channel::AVDIFF4 => {
+                self.config0.with_low(0xF0);
+            },
+            Channel::VCC2 => {
+                self.config0.with_low(0xF0);
+            },
+            Channel::RESERVED => {
+                self.config0.with_low(0xF0);
             },
             
         };
