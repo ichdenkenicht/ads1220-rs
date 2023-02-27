@@ -157,7 +157,7 @@ impl Mode {
 
 ///Data Rate Normal Mode
 #[derive(Debug, Copy, Clone, Default)]
-pub enum DataRateNormal {
+pub enum DataRate {
     #[default]
     SPS20 = 0x0,
     SPS45 = 0x1,
@@ -168,7 +168,7 @@ pub enum DataRateNormal {
     SPS1000 = 0x6
 }
 
-impl DataRateNormal {
+impl DataRate {
     pub fn bits(self) -> u8 {
         self as u8
     }

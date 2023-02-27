@@ -228,70 +228,131 @@ where
         
         let config = match ch {
             Channel::DIFF_AIN0_AIN1 => {
-                self.config0.with_low(0xF0);
+                self.config0.with_low(0xF0)
             },
             Channel::DIFF_AIN0_AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN0_AIN2.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN0_AIN2.bits_on_pos())
             },
             Channel::DIFF_AIN0_AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN0_AIN3.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN0_AIN3.bits_on_pos())
             },
             Channel::DIFF_AIN1_AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN1_AIN2.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN1_AIN2.bits_on_pos())
             },
             Channel::DIFF_AIN1_AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN1_AIN3.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN1_AIN3.bits_on_pos())
             },
             Channel::DIFF_AIN2_AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN2_AIN3.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN2_AIN3.bits_on_pos())
             },
             Channel::DIFF_AIN1_AIN0 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN1_AIN0.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN1_AIN0.bits_on_pos())
             },
             Channel::DIFF_AIN3_AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN3_AIN2.bits_on_pos());
+                self.config0.with_high(Channel::DIFF_AIN3_AIN2.bits_on_pos())
             },
             Channel::AIN0 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::AIN0.bits_on_pos());
+                self.config0.with_high(Channel::AIN0.bits_on_pos())
             },
             Channel::AIN1 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::AIN1.bits_on_pos());
+                self.config0.with_high(Channel::AIN1.bits_on_pos())
             },
             Channel::AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::AIN2.bits_on_pos());
+                self.config0.with_high(Channel::AIN2.bits_on_pos())
             },
             Channel::AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::AIN3.bits_on_pos());
+                self.config0.with_high(Channel::AIN3.bits_on_pos())
             },
             Channel::VREFDIFF4 => {
                 self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::VREFDIFF4.bits_on_pos())
             },
             Channel::AVDIFF4 => {
                 self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::AVDIFF4.bits_on_pos())
             },
             Channel::VCC2 => {
                 self.config0.with_low(0xF0);
+                self.config0.with_high(Channel::VCC2.bits_on_pos())
             },
             Channel::RESERVED => {
-                self.config0.with_low(0xF0);
+                self.config0.with_low(0xF0)
             },
-            
         };
-        
         
         self.write_register(Register::CONFIG0, config.bits)?;
         self.config0 = config;
+        
+        Ok(())
+    }
+    
+    pub fn set_operating_mode(&mut self, md: Mode) -> Result<(), MyError<SPI::Error>> {
+        
+        let config  = match md {
+            Mode::NORMAL => {
+                self.config1.with_low(0x18)
+            },
+            Mode::DUTYCYCLE => {
+                self.config1.with_low(0x18);
+                self.config1.with_high(0x08)
+            },
+            Mode::TURBO => {
+                self.config1.with_low(0x18);
+                self.config1.with_high(0x10)
+            },
+        };
+        
+        
+        self.write_register(Register::CONFIG1, config.bits)?;
+        self.config1 = config;
+        
+        Ok(())
+    }
+    
+    pub fn set_data_rate(&mut self, rate: DataRate) -> Result<(), MyError<SPI::Error>> {
+        
+        let config = match rate {
+            DataRate::SPS20 => {
+                self.config1.with_low(0xE0)
+            },
+            DataRate::SPS45 => {
+                self.config1.with_low(0xE0);
+                self.config1.with_high(PGA::Gain2.bits_on_pos())
+            },
+            DataRate::SPS90 => {
+                self.config1.with_low(0xE0);
+                self.config1.with_high(PGA::Gain4.bits_on_pos())
+            },
+            DataRate::SPS175 => {
+                self.config1.with_low(0xE0);
+                self.config1.with_high(PGA::Gain8.bits_on_pos())
+            },
+            DataRate::SPS330 => {
+                self.config1.with_low(0xE0);
+                self.config0.with_high(PGA::Gain16.bits_on_pos())
+            },
+            DataRate::SPS600 => {
+                self.config1.with_low(0xE0);
+                self.config0.with_high(PGA::Gain32.bits_on_pos())
+            },
+            DataRate::SPS1000 => {
+                self.config0.with_low(0x03 << 1);
+                self.config0.with_high(PGA::Gain64.bits_on_pos())
+            },
+        };
+        self.write_register(Register::CONFIG1, config.bits)?;
+        self.config1 = config;
         
         Ok(())
     }
