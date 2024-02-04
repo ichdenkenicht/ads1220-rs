@@ -4,32 +4,30 @@
 //!
 //! https://www.ti.com/lit/ds/symlink/ads1220.pdf
 
-
 ///Register 0-3 Bitflags
 pub struct BitFlags;
 #[allow(unused)]
 impl BitFlags {
     //Reg 0
     ///PGA_BYPASS bitflag
-    pub const PB: u8 = 0b0000_0001; 
-        
+    pub const PB: u8 = 0b0000_0001;
+
     //Reg 1
     ///Burn-Out current source bitflag
-    pub const BCS: u8 = 0b0000_0001;  
-    
+    pub const BCS: u8 = 0b0000_0001;
+
     ///Temperatur Sensor Mode bitflag
-    pub const TS: u8 = 0b0000_0010; 
-       
+    pub const TS: u8 = 0b0000_0010;
+
     ///Conversion Mode Single or Continous bitflag
-    pub const CM: u8 = 0b0000_0100;     
+    pub const CM: u8 = 0b0000_0100;
     //Reg 2
     ///Low side switch bitflag
-    pub const PSW: u8 = 0b0000_1000;    
+    pub const PSW: u8 = 0b0000_1000;
     //Reg 3
     ///Data ready mode bitflag
-    pub const DRDYM: u8 = 0b0000_0010;  
+    pub const DRDYM: u8 = 0b0000_0010;
 }
-
 
 #[derive(Debug, Copy, Clone)]
 pub enum Register {
@@ -45,9 +43,7 @@ impl Register {
     }
 }
 
-
 //Reg0
-
 
 #[derive(Debug, Copy, Clone, Default)]
 pub enum PGA_BYPASS {
@@ -165,7 +161,7 @@ pub enum DataRate {
     SPS175 = 0x3,
     SPS330 = 0x4,
     SPS600 = 0x5,
-    SPS1000 = 0x6
+    SPS1000 = 0x6,
 }
 
 impl DataRate {
@@ -242,10 +238,7 @@ impl Reference {
     }
 }
 
-
-
 //Reg 3
-
 
 ///Data Ready Mode
 #[derive(Debug, Copy, Clone, Default)]

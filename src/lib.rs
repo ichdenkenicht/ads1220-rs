@@ -1,13 +1,13 @@
 #[deny(missing_docs)]
 extern crate embedded_hal as hal;
 
-use hal::spi::blocking::{SpiBus, SpiBusRead, SpiBusWrite, SpiDevice};
+use hal::spi::{Operation, SpiDevice};
 
 mod commands;
 use commands::Command;
 
 mod registers;
-use registers::{*, BitFlags as BF};
+use registers::{BitFlags as BF, *};
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Config {
@@ -38,7 +38,6 @@ pub struct ADS1220<SPI> {
 impl<SPI> ADS1220<SPI>
 where
     SPI: SpiDevice,
-    SPI::Bus: SpiBus, // or SpiBusRead/SpiBusWrite if you only need to read or only write.
 {
     pub fn new(spi: SPI) -> Self {
         Self {
@@ -52,21 +51,21 @@ where
 
     pub fn reset(&mut self) -> Result<(), MyError<SPI::Error>> {
         self.spi
-            .transaction(|bus| bus.write(&[Command::RESET.bits()]))
+            .transaction(&mut [Operation::Write(&[Command::RESET.bits()])])
             .map_err(MyError::Spi)?;
         Ok(())
     }
 
     pub fn start(&mut self) -> Result<(), MyError<SPI::Error>> {
         self.spi
-            .transaction(|bus| bus.write(&[Command::START.bits()]))
+            .transaction(&mut [Operation::Write(&[Command::START.bits()])])
             .map_err(MyError::Spi)?;
         Ok(())
     }
 
     pub fn powerdown(&mut self) -> Result<(), MyError<SPI::Error>> {
         self.spi
-            .transaction(|bus| bus.write(&[Command::POWERDOWN.bits()]))
+            .transaction(&mut [Operation::Write(&[Command::POWERDOWN.bits()])])
             .map_err(MyError::Spi)?;
         Ok(())
     }
@@ -76,10 +75,10 @@ where
 
         // `transaction` asserts and deasserts CS for us. No need to do it manually!
         self.spi
-            .transaction(|bus| {
-                bus.write(&[Command::RREG.bits() | reg.addr() << 2])?;
-                bus.read(&mut res)
-            })
+            .transaction(&mut [
+                Operation::Write(&[Command::RREG.bits() | reg.addr() << 2]),
+                Operation::Read(&mut res),
+            ])
             .map_err(MyError::Spi)?;
 
         Ok(res[0])
@@ -88,22 +87,22 @@ where
     fn write_register(&mut self, reg: Register, value: u8) -> Result<(), MyError<SPI::Error>> {
         // `transaction` asserts and deasserts CS for us. No need to do it manually!
         self.spi
-            .transaction(|bus| {
-                bus.write(&[Command::WREG.bits() | reg.addr() << 2])?;
-                bus.write(&[value])
-            })
+            .transaction(&mut [
+                Operation::Write(&[Command::WREG.bits() | reg.addr() << 2]),
+                Operation::Write(&[value]),
+            ])
             .map_err(MyError::Spi)?;
 
         Ok(())
     }
 
-    fn read(&mut self) -> Result<u32, MyError<SPI::Error>> {
+    pub fn read(&mut self) -> Result<u32, MyError<SPI::Error>> {
         let mut res = [0u8; 4];
         self.spi
-            .transaction(|bus| {
-                bus.write(&[Command::RDATA.bits()])?;
-                bus.read(&mut res[1..])
-            })
+            .transaction(&mut [
+                Operation::Write(&[Command::RDATA.bits()]),
+                Operation::Read(&mut res[1..]),
+            ])
             .map_err(MyError::Spi)?;
         Ok(u32::from_be_bytes(res))
     }
@@ -111,252 +110,223 @@ where
     ///Set Programmable Gain Bypass
     pub fn set_pga_bypass(&mut self, bp: PGA_BYPASS) -> Result<(), MyError<SPI::Error>> {
         let config = match bp {
-            PGA_BYPASS::ENABLED => {
-                self.config0.with_low(BF::PB)
-            },
-            PGA_BYPASS::DISABLED => {
-                self.config0.with_high(BF::PB)
-            },
+            PGA_BYPASS::ENABLED => self.config0.with_low(BF::PB),
+            PGA_BYPASS::DISABLED => self.config0.with_high(BF::PB),
         };
         self.write_register(Register::CONFIG0, config.bits)?;
         self.config0 = config;
         Ok(())
     }
-    
+
     ///Set DataReady
     pub fn set_drdym(&mut self, drdym: DRDYM) -> Result<(), MyError<SPI::Error>> {
         let config = match drdym {
-            DRDYM::DRDY => {
-                self.config3.with_low(BF::DRDYM)
-            },
-            DRDYM::DOUT_DRDY => {
-                self.config3.with_high(BF::DRDYM)
-            },
+            DRDYM::DRDY => self.config3.with_low(BF::DRDYM),
+            DRDYM::DOUT_DRDY => self.config3.with_high(BF::DRDYM),
         };
         self.write_register(Register::CONFIG3, config.bits)?;
         self.config3 = config;
         Ok(())
     }
-    
+
     ///Set Low-side Power Switch
     pub fn set_psw(&mut self, psw: PSW) -> Result<(), MyError<SPI::Error>> {
         let config = match psw {
-            PSW::OPEN => {
-                self.config2.with_low(BF::PSW)
-            },
-            PSW::CLOSING => {
-                self.config2.with_high(BF::PSW)
-            },
+            PSW::OPEN => self.config2.with_low(BF::PSW),
+            PSW::CLOSING => self.config2.with_high(BF::PSW),
         };
         self.write_register(Register::CONFIG2, config.bits)?;
         self.config2 = config;
         Ok(())
     }
-    
+
     ///Set Conversion Mode
     pub fn set_mode(&mut self, mode: CM) -> Result<(), MyError<SPI::Error>> {
         let config = match mode {
-            CM::SINGLE => {
-                self.config1.with_low(BF::CM)
-            },
-            CM::CONTINUOUS => {
-                self.config1.with_high(BF::CM)
-            },
+            CM::SINGLE => self.config1.with_low(BF::CM),
+            CM::CONTINUOUS => self.config1.with_high(BF::CM),
         };
         self.write_register(Register::CONFIG1, config.bits)?;
         self.config1 = config;
         Ok(())
     }
-    
+
     ///Set Temperature sensor mode
     pub fn set_temp_mode(&mut self, mode: TS) -> Result<(), MyError<SPI::Error>> {
         let config = match mode {
-            TS::DISABLED => {
-                self.config1.with_low(BF::TS)
-            },
-            TS::ENABLED => {
-                self.config1.with_high(BF::TS)
-            },
+            TS::DISABLED => self.config1.with_low(BF::TS),
+            TS::ENABLED => self.config1.with_high(BF::TS),
         };
         self.write_register(Register::CONFIG1, config.bits)?;
         self.config1 = config;
         Ok(())
     }
-    
+
     pub fn set_gain(&mut self, gain: PGA) -> Result<(), MyError<SPI::Error>> {
-        
         let config = match gain {
-            PGA::Gain1 => {
-                self.config0.with_low(0x03 << 1)
-            },
+            PGA::Gain1 => self.config0.with_low(0x03 << 1),
             PGA::Gain2 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain2.bits_on_pos())
-            },
+            }
             PGA::Gain4 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain4.bits_on_pos())
-            },
+            }
             PGA::Gain8 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain8.bits_on_pos())
-            },
+            }
             PGA::Gain16 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain16.bits_on_pos())
-            },
+            }
             PGA::Gain32 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain32.bits_on_pos())
-            },
+            }
             PGA::Gain64 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain64.bits_on_pos())
-            },
+            }
             PGA::Gain128 => {
                 //self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain128.bits_on_pos())
-            },
+            }
         };
         self.write_register(Register::CONFIG0, config.bits)?;
         self.config0 = config;
-        
+
         Ok(())
     }
-    
+
     pub fn set_channel(&mut self, ch: Channel) -> Result<(), MyError<SPI::Error>> {
-        
         let config = match ch {
-            Channel::DIFF_AIN0_AIN1 => {
-                self.config0.with_low(0xF0)
-            },
+            Channel::DIFF_AIN0_AIN1 => self.config0.with_low(0xF0),
             Channel::DIFF_AIN0_AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN0_AIN2.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN0_AIN2.bits_on_pos())
+            }
             Channel::DIFF_AIN0_AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN0_AIN3.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN0_AIN3.bits_on_pos())
+            }
             Channel::DIFF_AIN1_AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN1_AIN2.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN1_AIN2.bits_on_pos())
+            }
             Channel::DIFF_AIN1_AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN1_AIN3.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN1_AIN3.bits_on_pos())
+            }
             Channel::DIFF_AIN2_AIN3 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN2_AIN3.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN2_AIN3.bits_on_pos())
+            }
             Channel::DIFF_AIN1_AIN0 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN1_AIN0.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN1_AIN0.bits_on_pos())
+            }
             Channel::DIFF_AIN3_AIN2 => {
                 self.config0.with_low(0xF0);
-                self.config0.with_high(Channel::DIFF_AIN3_AIN2.bits_on_pos())
-            },
+                self.config0
+                    .with_high(Channel::DIFF_AIN3_AIN2.bits_on_pos())
+            }
             Channel::AIN0 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::AIN0.bits_on_pos())
-            },
+            }
             Channel::AIN1 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::AIN1.bits_on_pos())
-            },
+            }
             Channel::AIN2 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::AIN2.bits_on_pos())
-            },
+            }
             Channel::AIN3 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::AIN3.bits_on_pos())
-            },
+            }
             Channel::VREFDIFF4 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::VREFDIFF4.bits_on_pos())
-            },
+            }
             Channel::AVDIFF4 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::AVDIFF4.bits_on_pos())
-            },
+            }
             Channel::VCC2 => {
                 self.config0.with_low(0xF0);
                 self.config0.with_high(Channel::VCC2.bits_on_pos())
-            },
-            Channel::RESERVED => {
-                self.config0.with_low(0xF0)
-            },
+            }
+            Channel::RESERVED => self.config0.with_low(0xF0),
         };
-        
+
         self.write_register(Register::CONFIG0, config.bits)?;
         self.config0 = config;
-        
+
         Ok(())
     }
-    
+
     pub fn set_operating_mode(&mut self, md: Mode) -> Result<(), MyError<SPI::Error>> {
-        
-        let config  = match md {
-            Mode::NORMAL => {
-                self.config1.with_low(0x18)
-            },
+        let config = match md {
+            Mode::NORMAL => self.config1.with_low(0x18),
             Mode::DUTYCYCLE => {
                 self.config1.with_low(0x18);
                 self.config1.with_high(0x08)
-            },
+            }
             Mode::TURBO => {
                 self.config1.with_low(0x18);
                 self.config1.with_high(0x10)
-            },
+            }
         };
-        
-        
+
         self.write_register(Register::CONFIG1, config.bits)?;
         self.config1 = config;
-        
+
         Ok(())
     }
-    
+
     pub fn set_data_rate(&mut self, rate: DataRate) -> Result<(), MyError<SPI::Error>> {
-        
         let config = match rate {
-            DataRate::SPS20 => {
-                self.config1.with_low(0xE0)
-            },
+            DataRate::SPS20 => self.config1.with_low(0xE0),
             DataRate::SPS45 => {
                 self.config1.with_low(0xE0);
                 self.config1.with_high(PGA::Gain2.bits_on_pos())
-            },
+            }
             DataRate::SPS90 => {
                 self.config1.with_low(0xE0);
                 self.config1.with_high(PGA::Gain4.bits_on_pos())
-            },
+            }
             DataRate::SPS175 => {
                 self.config1.with_low(0xE0);
                 self.config1.with_high(PGA::Gain8.bits_on_pos())
-            },
+            }
             DataRate::SPS330 => {
                 self.config1.with_low(0xE0);
                 self.config0.with_high(PGA::Gain16.bits_on_pos())
-            },
+            }
             DataRate::SPS600 => {
                 self.config1.with_low(0xE0);
                 self.config0.with_high(PGA::Gain32.bits_on_pos())
-            },
+            }
             DataRate::SPS1000 => {
                 self.config0.with_low(0x03 << 1);
                 self.config0.with_high(PGA::Gain64.bits_on_pos())
-            },
+            }
         };
         self.write_register(Register::CONFIG1, config.bits)?;
         self.config1 = config;
-        
+
         Ok(())
     }
-    
 }
 
 #[derive(Copy, Clone, Debug)]
